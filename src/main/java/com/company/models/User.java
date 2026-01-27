@@ -22,6 +22,6 @@ public class User {
 
     @Override
     public String toString() {
-        return id + " :: " + name + " :: balance=" + balance;
+        return id + " -- " + name + " :: balance=" + balance;
     }
 }
