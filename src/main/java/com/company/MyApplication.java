@@ -11,6 +11,7 @@ import java.util.Scanner;
 
 public class MyApplication {
     public void start() {
+        System.out.println("Application started...");
         Scanner scanner = new Scanner(System.in);
 
         IDB db = new PostgresDB();
