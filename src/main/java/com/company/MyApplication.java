@@ -1,26 +1,30 @@
 package com.company;
-
 import com.company.controllers.TradeController;
 import com.company.data.PostgresDB;
 import com.company.data.interfaces.IDB;
 import com.company.repositories.AssetRepository;
 import com.company.repositories.TradeRepository;
 import com.company.repositories.UserRepository;
-
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public class MyApplication {
     public void start() {
         System.out.println("Application started...");
         Scanner scanner = new Scanner(System.in);
-
         IDB db = new PostgresDB();
         AssetRepository assetRepo = new AssetRepository(db);
         UserRepository userRepo = new UserRepository(db);
         TradeRepository tradeRepo = new TradeRepository(db);
-
         TradeController controller = new TradeController(assetRepo, userRepo, tradeRepo, scanner);
-
+        Map<String, Runnable> actions = new HashMap<>();
+        actions.put("1", () -> controller.listAssets());
+        actions.put("2", () -> controller.addAsset());
+        actions.put("3", () -> controller.addUser());
+        actions.put("4", () -> controller.buy());
+        actions.put("5", () -> controller.sell());
+        actions.put("6", () -> controller.portfolio());
         while (true) {
             System.out.println("\n1) List assets");
             System.out.println("2) Add asset");
@@ -30,17 +34,14 @@ public class MyApplication {
             System.out.println("6) Portfolio");
             System.out.println("0) Exit");
             System.out.print("> ");
-
             String c = scanner.nextLine();
-
-            if (c.equals("1")) controller.listAssets();
-            else if (c.equals("2")) controller.addAsset();
-            else if (c.equals("3")) controller.addUser();
-            else if (c.equals("4")) controller.buy();
-            else if (c.equals("5")) controller.sell();
-            else if (c.equals("6")) controller.portfolio();
-            else if (c.equals("0")) break;
-            else System.out.println("wrong menu");
+            if ("0".equals(c)) break;
+            Runnable action = actions.get(c);
+            if (action != null) {
+                action.run();
+            } else {
+                System.out.println("wrong menu");
+            }
         }
     }
 }
