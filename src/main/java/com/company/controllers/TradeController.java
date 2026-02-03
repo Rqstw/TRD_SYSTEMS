@@ -40,19 +40,33 @@ public class TradeController implements ITradeController {
             System.out.print("admin userId: ");
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
-            // Если admin.role выдает ошибку, значит поле приватное.
-            // Но пока оставляем как в твоем коде.
-            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
+
+            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
+
             System.out.print("symbol: ");
             String s = scanner.nextLine();
+
             System.out.print("price: ");
             BigDecimal p = new BigDecimal(scanner.nextLine());
-            assets.create(new Asset(s, p));
+
+            System.out.print("categoryId (empty if none): ");
+            String catStr = scanner.nextLine();
+            Integer catId = null;
+            if (catStr != null && !catStr.trim().isEmpty()) {
+                catId = Integer.parseInt(catStr);
+            }
+
+            Asset a = new Asset(s, p);
+            a.categoryId = catId;
+
+            boolean ok = assets.create(a);
+            System.out.println(ok ? "Asset added" : "Asset not added");
+
         } catch (Exception e) {
-            System.out.println("addAsset err");
+            System.out.println("addAsset err: " + e.getMessage());
         }
     }
 
@@ -62,35 +76,68 @@ public class TradeController implements ITradeController {
             System.out.print("admin userId: ");
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
-            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
+
+            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
+
             System.out.print("name: ");
             String name = scanner.nextLine();
+
             System.out.print("balance: ");
             BigDecimal bal = new BigDecimal(scanner.nextLine());
 
-            // ИСПРАВЛЕНИЕ ОШИБКИ :83
-            // Создаем через пустой конструктор, так как другие не найдены
             User newUser = new User();
-            users.create(newUser);
-            System.out.println("User added");
+            newUser.name = name;
+            newUser.balance = bal;
+            newUser.role = "USER";
+            newUser.isBanned = false;
+
+            boolean ok = users.create(newUser);
+            System.out.println(ok ? "User added" : "User not added");
+
         } catch (Exception e) {
-            System.out.println("addUser err");
+            System.out.println("addUser err: " + e.getMessage());
         }
     }
 
-    @Override public void buy() { /* без изменений */ }
-    @Override public void sell() { /* без изменений */ }
-    @Override public void portfolio() { /* без изменений */ }
 
-    // УДАЛИЛИ @Override, так как в интерфейсе ITradeController этих методов нет
+    @Override public void buy() {  }
+    @Override public void sell() {  }
+    @Override public void portfolio() {  }
+
     public void banUser() {
-        System.out.println("Ban logic is implemented in repository");
+        try {
+            System.out.print("admin userId: ");
+            int adminId = Integer.parseInt(scanner.nextLine());
+            User admin = users.getById(adminId);
+
+            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+                System.out.println("Access denied");
+                return;
+            }
+
+
+            System.out.print("userId to ban: ");
+            int uid = Integer.parseInt(scanner.nextLine());
+
+            boolean ok = users.ban(uid);
+            System.out.println(ok ? "User banned" : "Ban failed");
+
+        } catch (Exception e) {
+            System.out.println("banUser err: " + e.getMessage());
+        }
     }
 
     public void tradeHistory() {
-        System.out.println("History coming soon");
+        try {
+            System.out.print("userId: ");
+            int uid = Integer.parseInt(scanner.nextLine());
+            String h = trades.fullTradeHistory(uid);
+            System.out.println(h);
+        } catch (Exception e) {
+            System.out.println("history err: " + e.getMessage());
+        }
     }
 }
