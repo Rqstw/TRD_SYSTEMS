@@ -21,6 +21,15 @@ public class TradeRepository implements ITradeRepository {
             conn = db.getConnection();
 
 
+            PreparedStatement bu = conn.prepareStatement("SELECT banned FROM users WHERE id=?");
+            bu.setInt(1, userId);
+            ResultSet bur = bu.executeQuery();
+            if (!bur.next()) { bur.close(); bu.close(); conn.close(); return false; }
+            boolean banned = bur.getBoolean("banned");
+            bur.close(); bu.close();
+            if (banned) { System.out.println("User is banned"); conn.close(); return false; }
+
+
             PreparedStatement st1 = conn.prepareStatement("SELECT price FROM assets WHERE id=?");
             st1.setInt(1, assetId);
             ResultSet r1 = st1.executeQuery();
@@ -44,17 +53,20 @@ public class TradeRepository implements ITradeRepository {
             }
 
 
-            PreparedStatement st3 = conn.prepareStatement("UPDATE users SET balance = balance - ? WHERE id=?");
+            PreparedStatement st3 = conn.prepareStatement(
+                    "UPDATE users SET balance = balance - ? WHERE id=?");
             st3.setDouble(1, cost);
             st3.setInt(2, userId);
             st3.executeUpdate();
             st3.close();
 
 
-            PreparedStatement chk = conn.prepareStatement("SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
+            PreparedStatement chk = conn.prepareStatement(
+                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
             chk.setInt(1, userId);
             chk.setInt(2, assetId);
             ResultSet cr = chk.executeQuery();
+
             if (cr.next()) {
                 cr.close(); chk.close();
                 PreparedStatement up = conn.prepareStatement(
@@ -75,6 +87,9 @@ public class TradeRepository implements ITradeRepository {
                 ins.close();
             }
 
+
+            recordTrade(conn, userId, assetId, "BUY", qty);
+
             conn.close();
             return true;
 
@@ -94,7 +109,17 @@ public class TradeRepository implements ITradeRepository {
             conn = db.getConnection();
 
 
-            PreparedStatement st0 = conn.prepareStatement("SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
+            PreparedStatement bu = conn.prepareStatement("SELECT banned FROM users WHERE id=?");
+            bu.setInt(1, userId);
+            ResultSet bur = bu.executeQuery();
+            if (!bur.next()) { bur.close(); bu.close(); conn.close(); return false; }
+            boolean banned = bur.getBoolean("banned");
+            bur.close(); bu.close();
+            if (banned) { System.out.println("User is banned"); conn.close(); return false; }
+
+
+            PreparedStatement st0 = conn.prepareStatement(
+                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
             st0.setInt(1, userId);
             st0.setInt(2, assetId);
             ResultSet r0 = st0.executeQuery();
@@ -122,7 +147,6 @@ public class TradeRepository implements ITradeRepository {
             st2.executeUpdate();
             st2.close();
 
-
             PreparedStatement del = conn.prepareStatement(
                     "DELETE FROM holdings WHERE user_id=? AND asset_id=? AND qty <= 0");
             del.setInt(1, userId);
@@ -131,11 +155,15 @@ public class TradeRepository implements ITradeRepository {
             del.close();
 
 
-            PreparedStatement st3 = conn.prepareStatement("UPDATE users SET balance = balance + ? WHERE id=?");
+            PreparedStatement st3 = conn.prepareStatement(
+                    "UPDATE users SET balance = balance + ? WHERE id=?");
             st3.setDouble(1, income);
             st3.setInt(2, userId);
             st3.executeUpdate();
             st3.close();
+
+
+            recordTrade(conn, userId, assetId, "SELL", qty);
 
             conn.close();
             return true;
@@ -154,30 +182,32 @@ public class TradeRepository implements ITradeRepository {
         try {
             conn = db.getConnection();
 
-
-            PreparedStatement u = conn.prepareStatement("SELECT id, name, balance FROM users WHERE id=?");
+            PreparedStatement u = conn.prepareStatement(
+                    "SELECT id, name, balance FROM users WHERE id=?");
             u.setInt(1, userId);
             ResultSet ur = u.executeQuery();
             if (!ur.next()) { ur.close(); u.close(); conn.close(); return "User not found"; }
+
             sb.append("User: ").append(ur.getString("name"))
                     .append(" balance=").append(ur.getBigDecimal("balance")).append("\n");
             ur.close(); u.close();
 
+            String q =
+                    "SELECT a.symbol, a.price, h.qty " +
+                            "FROM holdings h JOIN assets a ON a.id = h.asset_id " +
+                            "WHERE h.user_id = ? ORDER BY a.symbol";
 
-            String q = "SELECT a.symbol, a.price, h.qty " +
-                    "FROM holdings h JOIN assets a ON a.id = h.asset_id " +
-                    "WHERE h.user_id = ? ORDER BY a.symbol";
             PreparedStatement st = conn.prepareStatement(q);
             st.setInt(1, userId);
             ResultSet rs = st.executeQuery();
+
             double total = 0;
             while (rs.next()) {
-                String sym = rs.getString("symbol");
-                double pr = rs.getBigDecimal("price").doubleValue();
-                int qty = rs.getInt("qty");
-                double value = pr * qty;
+                double value = rs.getBigDecimal("price").doubleValue() * rs.getInt("qty");
                 total += value;
-                sb.append(sym).append(" qty=").append(qty).append(" value=").append(value).append("\n");
+                sb.append(rs.getString("symbol"))
+                        .append(" qty=").append(rs.getInt("qty"))
+                        .append(" value=").append(value).append("\n");
             }
             sb.append("Portfolio value: ").append(total).append("\n");
 
@@ -185,9 +215,62 @@ public class TradeRepository implements ITradeRepository {
             return sb.toString();
 
         } catch (Exception e) {
-            System.out.println("portfolio err: " + e.getMessage());
-            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
             return "portfolio error";
+        }
+    }
+
+
+    private void recordTrade(Connection conn, int userId, int assetId, String side, int qty) throws Exception {
+        PreparedStatement st = conn.prepareStatement(
+                "INSERT INTO trades(user_id, asset_id, side, qty) VALUES(?,?,?,?)");
+        st.setInt(1, userId);
+        st.setInt(2, assetId);
+        st.setString(3, side);
+        st.setInt(4, qty);
+        st.executeUpdate();
+        st.close();
+    }
+
+
+    @Override
+    public String fullTradeHistory(int userId) {
+        Connection conn = null;
+        StringBuilder sb = new StringBuilder();
+        try {
+            conn = db.getConnection();
+
+            String q =
+                    "SELECT t.id, u.name, u.role, u.banned, a.symbol, a.price, c.name AS category, " +
+                            "t.side, t.qty, t.created_at " +
+                            "FROM trades t " +
+                            "JOIN users u ON u.id = t.user_id " +
+                            "JOIN assets a ON a.id = t.asset_id " +
+                            "LEFT JOIN categories c ON c.id = a.category_id " +
+                            "WHERE t.user_id = ? " +
+                            "ORDER BY t.created_at DESC";
+
+            PreparedStatement st = conn.prepareStatement(q);
+            st.setInt(1, userId);
+            ResultSet rs = st.executeQuery();
+
+            while (rs.next()) {
+                sb.append("#").append(rs.getInt("id")).append(" ")
+                        .append(rs.getString("name")).append("[")
+                        .append(rs.getString("role")).append("] ")
+                        .append("banned=").append(rs.getBoolean("banned")).append(" ")
+                        .append(rs.getString("side")).append(" ")
+                        .append(rs.getString("symbol")).append(" ")
+                        .append("cat=").append(rs.getString("category")).append(" ")
+                        .append("qty=").append(rs.getInt("qty")).append(" ")
+                        .append("at=").append(rs.getTimestamp("created_at"))
+                        .append("\n");
+            }
+
+            rs.close(); st.close(); conn.close();
+            return sb.toString();
+
+        } catch (Exception e) {
+            return "history error";
         }
     }
 }
