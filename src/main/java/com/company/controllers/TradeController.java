@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Scanner;
 
 public class TradeController implements ITradeController {
+
     private final IAssetRepository assets;
     private final IUserRepository users;
     private final ITradeRepository trades;
@@ -41,7 +42,7 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
@@ -77,7 +78,7 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
@@ -102,10 +103,108 @@ public class TradeController implements ITradeController {
         }
     }
 
+    @Override
+    public void buy() {
+        try {
+            System.out.print("userId: ");
+            int userId = Integer.parseInt(scanner.nextLine());
 
-    @Override public void buy() {  }
-    @Override public void sell() {  }
-    @Override public void portfolio() {  }
+            User u = users.getById(userId);
+            if (u == null) {
+                System.out.println("No such user");
+                return;
+            }
+            if (u.isBanned) {
+                System.out.println("User is banned");
+                return;
+            }
+
+            System.out.print("assetId: ");
+            int assetId = Integer.parseInt(scanner.nextLine());
+
+
+            Asset a = assets.getById(assetId);
+            if (a == null) {
+                System.out.println("No such asset");
+                return;
+            }
+
+            System.out.print("qty: ");
+            int qty = Integer.parseInt(scanner.nextLine());
+            if (qty <= 0) {
+                System.out.println("qty must be > 0");
+                return;
+            }
+
+            boolean ok = trades.buy(userId, assetId, qty);
+            System.out.println(ok ? "BUY OK" : "BUY FAILED");
+
+        } catch (Exception e) {
+            System.out.println("buy err: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void sell() {
+        try {
+            System.out.print("userId: ");
+            int userId = Integer.parseInt(scanner.nextLine());
+
+            User u = users.getById(userId);
+            if (u == null) {
+                System.out.println("No such user");
+                return;
+            }
+            if (u.isBanned) {
+                System.out.println("User is banned");
+                return;
+            }
+
+            System.out.print("assetId: ");
+            int assetId = Integer.parseInt(scanner.nextLine());
+
+            Asset a = assets.getById(assetId);
+            if (a == null) {
+                System.out.println("No such asset");
+                return;
+            }
+
+            System.out.print("qty: ");
+            int qty = Integer.parseInt(scanner.nextLine());
+            if (qty <= 0) {
+                System.out.println("qty must be > 0");
+                return;
+            }
+
+            boolean ok = trades.sell(userId, assetId, qty);
+            System.out.println(ok ? "SELL OK" : "SELL FAILED");
+
+        } catch (Exception e) {
+            System.out.println("sell err: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void portfolio() {
+        try {
+            System.out.print("userId: ");
+            int userId = Integer.parseInt(scanner.nextLine());
+
+
+            User u = users.getById(userId);
+            if (u == null) {
+                System.out.println("No such user");
+                return;
+            }
+
+            String p = trades.portfolio(userId);
+            System.out.println(p);
+
+        } catch (Exception e) {
+            System.out.println("portfolio err: " + e.getMessage());
+        }
+    }
+
 
     public void banUser() {
         try {
@@ -113,16 +212,15 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
 
-
             System.out.print("userId to ban: ");
             int uid = Integer.parseInt(scanner.nextLine());
 
-            boolean ok = users.ban(uid);
+            boolean ok = users.setBanStatus(uid, true);
             System.out.println(ok ? "User banned" : "Ban failed");
 
         } catch (Exception e) {
