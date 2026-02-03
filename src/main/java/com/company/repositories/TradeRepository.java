@@ -4,8 +4,10 @@ import com.company.data.interfaces.IDB;
 import com.company.repositories.interfaces.ITradeRepository;
 
 import java.sql.*;
+import java.math.BigDecimal;
 
 public class TradeRepository implements ITradeRepository {
+
     private final IDB db;
 
     public TradeRepository(IDB db) {
@@ -54,7 +56,8 @@ public class TradeRepository implements ITradeRepository {
 
 
             PreparedStatement st3 = conn.prepareStatement(
-                    "UPDATE users SET balance = balance - ? WHERE id=?");
+                    "UPDATE users SET balance = balance - ? WHERE id=?"
+            );
             st3.setDouble(1, cost);
             st3.setInt(2, userId);
             st3.executeUpdate();
@@ -62,7 +65,8 @@ public class TradeRepository implements ITradeRepository {
 
 
             PreparedStatement chk = conn.prepareStatement(
-                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
+                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?"
+            );
             chk.setInt(1, userId);
             chk.setInt(2, assetId);
             ResultSet cr = chk.executeQuery();
@@ -70,7 +74,8 @@ public class TradeRepository implements ITradeRepository {
             if (cr.next()) {
                 cr.close(); chk.close();
                 PreparedStatement up = conn.prepareStatement(
-                        "UPDATE holdings SET qty = qty + ? WHERE user_id=? AND asset_id=?");
+                        "UPDATE holdings SET qty = qty + ? WHERE user_id=? AND asset_id=?"
+                );
                 up.setInt(1, qty);
                 up.setInt(2, userId);
                 up.setInt(3, assetId);
@@ -79,7 +84,8 @@ public class TradeRepository implements ITradeRepository {
             } else {
                 cr.close(); chk.close();
                 PreparedStatement ins = conn.prepareStatement(
-                        "INSERT INTO holdings(user_id, asset_id, qty) VALUES(?,?,?)");
+                        "INSERT INTO holdings(user_id, asset_id, qty) VALUES(?,?,?)"
+                );
                 ins.setInt(1, userId);
                 ins.setInt(2, assetId);
                 ins.setInt(3, qty);
@@ -88,7 +94,7 @@ public class TradeRepository implements ITradeRepository {
             }
 
 
-            recordTrade(conn, userId, assetId, "BUY", qty);
+            recordTrade(conn, userId, assetId, "BUY", qty, price);
 
             conn.close();
             return true;
@@ -109,6 +115,7 @@ public class TradeRepository implements ITradeRepository {
             conn = db.getConnection();
 
 
+
             PreparedStatement bu = conn.prepareStatement("SELECT banned FROM users WHERE id=?");
             bu.setInt(1, userId);
             ResultSet bur = bu.executeQuery();
@@ -119,14 +126,19 @@ public class TradeRepository implements ITradeRepository {
 
 
             PreparedStatement st0 = conn.prepareStatement(
-                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?");
+                    "SELECT qty FROM holdings WHERE user_id=? AND asset_id=?"
+            );
             st0.setInt(1, userId);
             st0.setInt(2, assetId);
             ResultSet r0 = st0.executeQuery();
             if (!r0.next()) { r0.close(); st0.close(); conn.close(); return false; }
             int have = r0.getInt("qty");
             r0.close(); st0.close();
-            if (have < qty) { System.out.println("Not enough shares"); conn.close(); return false; }
+            if (have < qty) {
+                System.out.println("Not enough shares");
+                conn.close();
+                return false;
+            }
 
 
             PreparedStatement st1 = conn.prepareStatement("SELECT price FROM assets WHERE id=?");
@@ -140,15 +152,18 @@ public class TradeRepository implements ITradeRepository {
 
 
             PreparedStatement st2 = conn.prepareStatement(
-                    "UPDATE holdings SET qty = qty - ? WHERE user_id=? AND asset_id=?");
+                    "UPDATE holdings SET qty = qty - ? WHERE user_id=? AND asset_id=?"
+            );
             st2.setInt(1, qty);
             st2.setInt(2, userId);
             st2.setInt(3, assetId);
             st2.executeUpdate();
             st2.close();
 
+
             PreparedStatement del = conn.prepareStatement(
-                    "DELETE FROM holdings WHERE user_id=? AND asset_id=? AND qty <= 0");
+                    "DELETE FROM holdings WHERE user_id=? AND asset_id=? AND qty <= 0"
+            );
             del.setInt(1, userId);
             del.setInt(2, assetId);
             del.executeUpdate();
@@ -156,14 +171,15 @@ public class TradeRepository implements ITradeRepository {
 
 
             PreparedStatement st3 = conn.prepareStatement(
-                    "UPDATE users SET balance = balance + ? WHERE id=?");
+                    "UPDATE users SET balance = balance + ? WHERE id=?"
+            );
             st3.setDouble(1, income);
             st3.setInt(2, userId);
             st3.executeUpdate();
             st3.close();
 
 
-            recordTrade(conn, userId, assetId, "SELL", qty);
+            recordTrade(conn, userId, assetId, "SELL", qty, price);
 
             conn.close();
             return true;
@@ -179,23 +195,31 @@ public class TradeRepository implements ITradeRepository {
     public String portfolio(int userId) {
         Connection conn = null;
         StringBuilder sb = new StringBuilder();
+
         try {
             conn = db.getConnection();
 
             PreparedStatement u = conn.prepareStatement(
-                    "SELECT id, name, balance FROM users WHERE id=?");
+                    "SELECT id, name, balance, banned FROM users WHERE id=?"
+            );
             u.setInt(1, userId);
             ResultSet ur = u.executeQuery();
-            if (!ur.next()) { ur.close(); u.close(); conn.close(); return "User not found"; }
+            if (!ur.next()) {
+                ur.close(); u.close(); conn.close();
+                return "User not found";
+            }
 
             sb.append("User: ").append(ur.getString("name"))
-                    .append(" balance=").append(ur.getBigDecimal("balance")).append("\n");
+                    .append(" balance=").append(ur.getBigDecimal("balance"))
+                    .append(" banned=").append(ur.getBoolean("banned"))
+                    .append("\n");
+
             ur.close(); u.close();
 
             String q =
                     "SELECT a.symbol, a.price, h.qty " +
                             "FROM holdings h JOIN assets a ON a.id = h.asset_id " +
-                            "WHERE h.user_id = ? ORDER BY a.symbol";
+                            "WHERE h.user_id=? ORDER BY a.symbol";
 
             PreparedStatement st = conn.prepareStatement(q);
             st.setInt(1, userId);
@@ -207,7 +231,9 @@ public class TradeRepository implements ITradeRepository {
                 total += value;
                 sb.append(rs.getString("symbol"))
                         .append(" qty=").append(rs.getInt("qty"))
-                        .append(" value=").append(value).append("\n");
+                        .append(" price=").append(rs.getBigDecimal("price"))
+                        .append(" value=").append(value)
+                        .append("\n");
             }
             sb.append("Portfolio value: ").append(total).append("\n");
 
@@ -215,38 +241,27 @@ public class TradeRepository implements ITradeRepository {
             return sb.toString();
 
         } catch (Exception e) {
-            return "portfolio error";
+            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
+            return "portfolio error: " + e.getMessage();
         }
     }
-
-
-    private void recordTrade(Connection conn, int userId, int assetId, String side, int qty) throws Exception {
-        PreparedStatement st = conn.prepareStatement(
-                "INSERT INTO trades(user_id, asset_id, side, qty) VALUES(?,?,?,?)");
-        st.setInt(1, userId);
-        st.setInt(2, assetId);
-        st.setString(3, side);
-        st.setInt(4, qty);
-        st.executeUpdate();
-        st.close();
-    }
-
 
     @Override
     public String fullTradeHistory(int userId) {
         Connection conn = null;
         StringBuilder sb = new StringBuilder();
+
         try {
             conn = db.getConnection();
 
             String q =
-                    "SELECT t.id, u.name, u.role, u.banned, a.symbol, a.price, c.name AS category, " +
+                    "SELECT t.id, u.name, u.role, u.banned, a.symbol, t.price, c.name AS category, " +
                             "t.side, t.qty, t.created_at " +
                             "FROM trades t " +
                             "JOIN users u ON u.id = t.user_id " +
                             "JOIN assets a ON a.id = t.asset_id " +
                             "LEFT JOIN categories c ON c.id = a.category_id " +
-                            "WHERE t.user_id = ? " +
+                            "WHERE t.user_id=? " +
                             "ORDER BY t.created_at DESC";
 
             PreparedStatement st = conn.prepareStatement(q);
@@ -262,6 +277,7 @@ public class TradeRepository implements ITradeRepository {
                         .append(rs.getString("symbol")).append(" ")
                         .append("cat=").append(rs.getString("category")).append(" ")
                         .append("qty=").append(rs.getInt("qty")).append(" ")
+                        .append("price=").append(rs.getBigDecimal("price")).append(" ")
                         .append("at=").append(rs.getTimestamp("created_at"))
                         .append("\n");
             }
@@ -270,7 +286,22 @@ public class TradeRepository implements ITradeRepository {
             return sb.toString();
 
         } catch (Exception e) {
-            return "history error";
+            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
+            return "history error: " + e.getMessage();
         }
+    }
+
+
+    private void recordTrade(Connection conn, int userId, int assetId, String side, int qty, double price) throws Exception {
+        PreparedStatement st = conn.prepareStatement(
+                "INSERT INTO trades(user_id, asset_id, side, qty, price) VALUES(?,?,?,?,?)"
+        );
+        st.setInt(1, userId);
+        st.setInt(2, assetId);
+        st.setString(3, side);
+        st.setInt(4, qty);
+        st.setDouble(5, price);
+        st.executeUpdate();
+        st.close();
     }
 }
