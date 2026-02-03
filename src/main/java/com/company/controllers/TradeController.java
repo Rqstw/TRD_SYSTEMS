@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Scanner;
 
 public class TradeController implements ITradeController {
+
     private final IAssetRepository assets;
     private final IUserRepository users;
     private final ITradeRepository trades;
@@ -41,7 +42,7 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
@@ -77,7 +78,7 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
@@ -102,10 +103,24 @@ public class TradeController implements ITradeController {
         }
     }
 
+    @Override
+    public void buy() {
+        System.out.println("BUY not implemented here (use repository logic)");
 
-    @Override public void buy() {  }
-    @Override public void sell() {  }
-    @Override public void portfolio() {  }
+    }
+
+    @Override
+    public void sell() {
+        System.out.println("SELL not implemented here (use repository logic)");
+
+    }
+
+    @Override
+    public void portfolio() {
+        System.out.println("PORTFOLIO not implemented here (use repository logic)");
+
+    }
+
 
     public void banUser() {
         try {
@@ -113,22 +128,22 @@ public class TradeController implements ITradeController {
             int adminId = Integer.parseInt(scanner.nextLine());
             User admin = users.getById(adminId);
 
-            if (admin == null  admin.role == null  !"ADMIN".equalsIgnoreCase(admin.role)) {
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.role)) {
                 System.out.println("Access denied");
                 return;
             }
 
-
             System.out.print("userId to ban: ");
             int uid = Integer.parseInt(scanner.nextLine());
 
-            boolean ok = users.ban(uid);
+            boolean ok = users.setBanStatus(uid, true);
             System.out.println(ok ? "User banned" : "Ban failed");
 
         } catch (Exception e) {
             System.out.println("banUser err: " + e.getMessage());
         }
     }
+
 
     public void tradeHistory() {
         try {

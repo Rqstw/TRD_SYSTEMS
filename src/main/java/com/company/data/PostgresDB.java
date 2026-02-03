@@ -9,14 +9,14 @@ public class PostgresDB implements IDB {
 
     private static PostgresDB instance;
 
-    private static final String URL = "jdbc:postgresql://localhost:5432/postgres";
+    private static final String URL = "jdbc:postgresql://localhost:5432/trading_db";
     private static final String USER = "postgres";
     private static final String PASS = "0000";
 
     public PostgresDB() { }
 
     public static PostgresDB getInstance() {
-        if (instance == null) instance = new PostgresDB(); // без синхронизации (студенчески)
+        if (instance == null) instance = new PostgresDB();
         return instance;
     }
 

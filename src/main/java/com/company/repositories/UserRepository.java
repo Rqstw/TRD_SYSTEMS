@@ -92,6 +92,11 @@ public class UserRepository implements IUserRepository {
     }
 
     @Override
+    public boolean updateRole(int userId, String newRole) {
+        return false;
+    }
+
+    @Override
     public boolean updateRole(int userId, Role newRole) {
         Connection conn = null;
         try {
@@ -127,5 +132,10 @@ public class UserRepository implements IUserRepository {
             try { if (conn != null) conn.close(); } catch (Exception ignored) {}
             return false;
         }
+    }
+
+    @Override
+    public boolean ban(int uid) {
+        return false;
     }
 }
